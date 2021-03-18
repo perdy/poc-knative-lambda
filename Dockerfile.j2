@@ -1,0 +1,59 @@
+FROM {{ project.image }}
+{% for label in labels -%}
+    LABEL {{ label }}
+{% endfor %}
+
+ENV LC_ALL='C.UTF-8' PYTHONIOENCODING='utf-8'
+ENV PYTHONPATH={{ "/".join([project.path, app.path]) }}:$PYTHONPATH
+WORKDIR {{ project.path }}
+
+{% if app.packages.runtime %}
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y {{ app.packages.runtime|join(" ") }} && \
+    apt-get clean && \
+    rm -rf \
+        /var/lib/apt/lists/* \
+        /tmp/* \
+        /var/tmp/*
+
+{% endif -%}
+
+{% if app.packages.development and not production %}
+    # Install system dependencies
+    RUN apt-get update && \
+    apt-get install -y {{ app.packages.development|join(" ") }} && \
+    apt-get clean && \
+    rm -rf \
+    /var/lib/apt/lists/* \
+    /tmp/* \
+    /var/tmp/*
+
+{% endif -%}
+
+# Install python requirements
+COPY {{ app.requirements|join(" ") }} {{ project.path }}/
+RUN apt-get update && \
+    {% if app.packages.build %}apt-get install -y {{ app.packages.build|join(" ") }} && {% endif %} \
+    python -m pip install --no-cache-dir --upgrade pip "poetry==1.0.0" && \
+    poetry config virtualenvs.create false && \
+    poetry install -q --no-interaction {% if production %}--no-dev {% endif %}&& \
+    {% if app.packages.build %}apt-get purge -y --auto-remove {{ app.packages.build|join(" ") }} && {% endif %} \
+    apt-get clean && \
+    rm -rf \
+        /var/lib/apt/lists/* \
+        /tmp/* \
+        /var/tmp/*
+
+# Create initial dirs
+RUN mkdir -p {{ "/".join([project.path, app.path]) }} {{ "/".join([project.path, logs.path]) }} {{ "/".join([project.path, test.path]) }}
+
+# Copy application
+COPY {{ project.files|join(" ") }} {{ project.path }}/
+COPY {{ app.path }} {{ "/".join([project.path, app.path]) }}/
+
+{% if not production -%}
+    COPY {{ test.path }} {{ "/".join([project.path, test.path]) }}/
+{% endif -%}
+
+ENTRYPOINT ["python", "-m", "{{ app.path }}"]

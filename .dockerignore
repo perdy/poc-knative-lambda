@@ -1,0 +1,30 @@
+## Tests
+.pytest_cache/
+test-results/
+.coverage
+
+## Project data and cache
+**/__pycache__
+.data/
+logs/
+
+## Deployment
+deployment/
+
+## Docker config
+Dockerfile.j2
+.dockerignore
+
+## Project config and metadata
+.circleci/
+.git/
+.gitignore
+.pre-commit-config.yaml
+make
+README.md
+LICENSE
+
+## Temp files
+*.pid
+*.sock
+*.socket
